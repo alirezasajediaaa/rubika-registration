@@ -1,64 +1,54 @@
-from flask import Flask, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import os
 import requests
 
 app = Flask(__name__)
 
 TOKEN = os.environ.get("RUBIKA_TOKEN")
-BASE_URL = f"https://botapi.rubika.ir/v3/{TOKEN}"
-
+CHAT_ID = os.environ.get("RUBIKA_CHAT_ID")
 
 @app.route("/")
 def home():
-    return "Rubika bot server is running!"
+    return send_from_directory(".", "index.html")
 
+@app.route("/submit", methods=["POST"])
+def submit():
+    data = request.get_json(silent=True) or {}
 
-@app.route("/check")
-def check():
-    if not TOKEN:
-        return jsonify({"error": "Token is missing"}), 500
+    name = data.get("name", "").strip()
+    username = data.get("username", "").strip()
+    invite_code = data.get("invite_code", "").strip()
+    consent = data.get("consent")
+
+    if not all([name, username, invite_code]) or consent is not True:
+        return jsonify({"error": "اطلاعات ناقص است"}), 400
+
+    if not TOKEN or not CHAT_ID:
+        return jsonify({"error": "تنظیمات سرور کامل نیست"}), 500
+
+    message = (
+        "ثبت‌نام جدید\n\n"
+        f"نام: {name}\n"
+        f"نام کاربری: {username}\n"
+        f"کد دعوت: {invite_code}"
+    )
 
     try:
         response = requests.post(
-            f"{BASE_URL}/getMe",
-            json={},
-            timeout=15
-        )
-        return jsonify(response.json())
-
-    except Exception:
-        return jsonify({"error": "Connection failed"}), 502
-
-
-@app.route("/updates")
-def updates():
-    if not TOKEN:
-        return jsonify({"error": "Token is missing"}), 500
-
-    try:
-        response = requests.post(
-            f"{BASE_URL}/getUpdates",
-            json={"limit": 10},
+            f"https://botapi.rubika.ir/v3/{TOKEN}/sendMessage",
+            json={
+                "chat_id": CHAT_ID,
+                "text": message
+            },
             timeout=15
         )
 
         result = response.json()
-        chats = []
 
-        for update in result.get("data", {}).get("updates", []):
-            chats.append({
-                "chat_id": update.get("chat_id"),
-                "type": update.get("type")
-            })
+        if response.status_code != 200 or result.get("status") != "OK":
+            return jsonify({"error": "ارسال پیام ناموفق بود"}), 502
 
-        return jsonify({"chats": chats})
+        return jsonify({"success": True})
 
     except Exception:
-        return jsonify({"error": "Connection failed"}), 502
-
-
-if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 10000))
-    )
+        return jsonify({"error": "خطا در ارتباط با روبیکا"}), 502
