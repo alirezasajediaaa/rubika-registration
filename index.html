@@ -1,1 +1,153 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>فرم ثبت‌نام</title>
 
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #101827;
+            font-family: Tahoma, sans-serif;
+            color: white;
+        }
+
+        .box {
+            width: 90%;
+            max-width: 380px;
+            padding: 28px;
+            background: #1e293b;
+            border-radius: 18px;
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            margin: 9px 0;
+            border: 1px solid #475569;
+            border-radius: 9px;
+            background: #0f172a;
+            color: white;
+            font-size: 15px;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 15px;
+            border: none;
+            border-radius: 9px;
+            background: #2563eb;
+            color: white;
+            font-size: 16px;
+        }
+
+        .consent {
+            font-size: 12px;
+            color: #cbd5e1;
+            line-height: 2;
+        }
+
+        #result {
+            text-align: center;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>فرم ثبت‌نام</h2>
+
+    <form id="registerForm">
+
+        <input name="name"
+               placeholder="نام"
+               required maxlength="60">
+
+        <input name="username"
+               placeholder="نام کاربری"
+               required maxlength="60">
+
+        <input name="invite_code"
+               placeholder="کد دعوت"
+               required maxlength="60">
+
+        <label class="consent">
+            <input type="checkbox"
+                   id="consent"
+                   required>
+            رضایت دارم اطلاعات واردشده برای ثبت‌نام
+            به مدیر سایت ارسال شود.
+        </label>
+
+        <button type="submit" id="submitBtn">
+            ثبت اطلاعات
+        </button>
+
+        <div id="result"></div>
+
+    </form>
+</div>
+
+<script>
+document.getElementById("registerForm")
+.addEventListener("submit", async function(e) {
+
+    e.preventDefault();
+
+    const button = document.getElementById("submitBtn");
+    const result = document.getElementById("result");
+
+    const data = {
+        name: this.name.value.trim(),
+        username: this.username.value.trim(),
+        invite_code: this.invite_code.value.trim(),
+        consent: document.getElementById("consent").checked
+    };
+
+    button.disabled = true;
+    result.textContent = "در حال ارسال...";
+
+    try {
+        const response = await fetch("/submit", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+
+        const answer = await response.json();
+
+        if (response.ok && answer.success) {
+            result.textContent = "اطلاعات با موفقیت ارسال شد.";
+            this.reset();
+        } else {
+            result.textContent = "ارسال ناموفق بود. دوباره تلاش کن.";
+        }
+
+    } catch (error) {
+        result.textContent = "خطا در ارتباط با سرور.";
+    }
+
+    button.disabled = false;
+});
+</script>
+
+</body>
+</html>
