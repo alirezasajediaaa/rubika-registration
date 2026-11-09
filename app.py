@@ -1,58 +1,64 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify
 import os
 import requests
 
 app = Flask(__name__)
 
-BOT_TOKEN = os.environ.get("RUBIKA_TOKEN")
-ADMIN_CHAT_ID = os.environ.get("ADMIN_CHAT_ID")
+TOKEN = os.environ.get("RUBIKA_TOKEN")
+BASE_URL = f"https://botapi.rubika.ir/v3/{TOKEN}"
 
 
 @app.route("/")
 def home():
-    return "Server is running!"
+    return "Rubika bot server is running!"
 
 
-@app.route("/submit", methods=["POST"])
-def submit():
-    if not BOT_TOKEN or not ADMIN_CHAT_ID:
-        return jsonify({"error": "Server configuration missing"}), 500
-
-    data = request.get_json(silent=True) or {}
-
-    name = str(data.get("name", "")).strip()
-    username = str(data.get("username", "")).strip()
-    invite_code = str(data.get("invite_code", "")).strip()
-
-    if not name or not username or not invite_code:
-        return jsonify({"error": "Please fill in all fields"}), 400
-
-    message = (
-        "ثبت‌نام جدید\n\n"
-        f"نام: {name}\n"
-        f"نام کاربری: {username}\n"
-        f"کد دعوت: {invite_code}"
-    )
+@app.route("/check")
+def check():
+    if not TOKEN:
+        return jsonify({"error": "Token is missing"}), 500
 
     try:
         response = requests.post(
-            f"https://botapi.rubika.ir/v3/{BOT_TOKEN}/sendMessage",
-            json={
-                "chat_id": ADMIN_CHAT_ID,
-                "text": message
-            },
+            f"{BASE_URL}/getMe",
+            json={},
             timeout=15
         )
-        result = response.json()
-
-        if result.get("status") != "OK":
-            return jsonify({"error": "Rubika message failed"}), 502
-
-        return jsonify({"success": True})
+        return jsonify(response.json())
 
     except Exception:
-        return jsonify({"error": "Could not contact Rubika"}), 502
+        return jsonify({"error": "Connection failed"}), 502
+
+
+@app.route("/updates")
+def updates():
+    if not TOKEN:
+        return jsonify({"error": "Token is missing"}), 500
+
+    try:
+        response = requests.post(
+            f"{BASE_URL}/getUpdates",
+            json={"limit": 10},
+            timeout=15
+        )
+
+        result = response.json()
+        chats = []
+
+        for update in result.get("data", {}).get("updates", []):
+            chats.append({
+                "chat_id": update.get("chat_id"),
+                "type": update.get("type")
+            })
+
+        return jsonify({"chats": chats})
+
+    except Exception:
+        return jsonify({"error": "Connection failed"}), 502
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000))
+    )
